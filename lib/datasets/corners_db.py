@@ -26,8 +26,8 @@ class corners_db(imdb):
                          'corner')
         self._class_to_ind = dict(zip(self.classes, xrange(self.num_classes)))
         self._image_index = self._load_image_set_index()
-        # Default to roidb handler
-        self._roidb_handler = self.dummy_roidb_handler
+        # Default roidb handler
+        self._roidb_handler = self.gt_roidb
 
         assert os.path.exists(self._corners_db_path), \
                 'Corners database path does not exist: {}'.format(self._corners_db_path)
