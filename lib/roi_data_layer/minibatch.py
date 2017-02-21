@@ -11,6 +11,7 @@ import numpy as np
 import numpy.random as npr
 import cv2
 import os
+from scipy import ndimage
 
 # TODO: make fast_rcnn irrelevant
 # >>>> obsolete, because it depends on sth outside of this project
@@ -146,7 +147,9 @@ def _get_image_blob(roidb, scale_inds):
     processed_ims = []
     im_scales = []
     for i in xrange(num_images):
-        im = cv2.imread(roidb[i]['image'])
+        im = ndimage.imread(roidb[i]['image'])
+        # Change from RGB to BGR order
+        im = im[:, :, (2, 1, 0)]
         if roidb[i]['flipped']:
             im = im[:, ::-1, :]
         target_size = cfg.TRAIN.SCALES[scale_inds[i]]

@@ -9,6 +9,7 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 
+from scipy import ndimage
 from ..utils.blob import im_list_to_blob
 from ..utils.timer import Timer
 
@@ -101,7 +102,9 @@ def imdb_proposals(net, imdb):
     _t = Timer()
     imdb_boxes = [[] for _ in xrange(imdb.num_images)]
     for i in xrange(imdb.num_images):
-        im = cv2.imread(imdb.image_path_at(i))
+        im = ndimage.imread(imdb.image_path_at(i))
+        # Change from RGB to BGR order
+        im = im[:, :, (2, 1, 0)]
         _t.tic()
         imdb_boxes[i], scores = im_proposals(net, im)
         _t.toc()
