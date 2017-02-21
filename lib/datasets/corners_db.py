@@ -11,7 +11,6 @@ import xml.etree.ElementTree as ET
 import numpy as np
 import scipy.sparse
 import scipy.io as sio
-import utils.cython_bbox
 #import cPickle
 import subprocess
 from ..fast_rcnn.config import cfg
