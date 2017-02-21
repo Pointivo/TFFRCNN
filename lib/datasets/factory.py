@@ -18,6 +18,7 @@ from .kitti_tracking import kitti_tracking
 from .nthu import nthu
 from .coco import coco
 from .kittivoc import kittivoc
+from .corners_db import corners_db
 
 def _selective_search_IJCV_top_k(split, year, top_k):
     """Return an imdb that uses the top k proposals from the selective search
@@ -66,6 +67,10 @@ for split in ['71', '370']:
     print name
     __sets[name] = (lambda split=split: nthu(split))
 
+# Set up Corners database
+for split in ['train', 'val', 'trainval', 'test']:
+    name = 'corners_db_{}'.format(split)
+    __sets[name] = (lambda split=split: corners_db(split))
 
 def get_imdb(name):
     """Get an imdb (image database) by name."""
