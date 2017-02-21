@@ -60,7 +60,7 @@ def parse_args():
                         nargs=argparse.REMAINDER)
     parser.add_argument('--restore', dest='restore',
                         help='restore or not',
-                        default=1, type=int)
+                        default=0, type=int)
 
     if len(sys.argv) == 1:
         parser.print_help()
