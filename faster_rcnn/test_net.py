@@ -44,6 +44,8 @@ def parse_args():
                         default='voc_2007_test', type=str)
     parser.add_argument('--comp', dest='comp_mode', help='competition mode',
                         action='store_true')
+    parser.add_argument('--vis', dest='vis', help='visualize detections',
+                        action='store_true')
     parser.add_argument('--network', dest='network_name',
                         help='name of the network',
                         default=None, type=str)
@@ -90,4 +92,4 @@ if __name__ == '__main__':
     saver.restore(sess, args.model)
     print ('Loading model weights from {:s}').format(args.model)
 
-    test_net(sess, network, imdb, weights_filename)
+    test_net(sess, network, imdb, weights_filename, vis=args.vis)

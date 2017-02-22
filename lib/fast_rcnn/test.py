@@ -7,6 +7,7 @@ import os
 import math
 import tensorflow as tf
 import matplotlib.pyplot as plt
+from scipy import ndimage
 
 from .config import cfg, get_output_dir
 
@@ -201,29 +202,48 @@ def im_detect(sess, net, im, boxes=None):
 
     return scores, pred_boxes
 
-def vis_detections(im, class_name, dets, thresh=0.8):
+def vis_detections(im, image_name, class_name, dets, gt_boxes, thresh=0.5):
     """Visual debugging of detections."""
-    import matplotlib.pyplot as plt 
-    #im = im[:, :, (2, 1, 0)]
-    for i in xrange(np.minimum(10, dets.shape[0])):
-        bbox = dets[i, :4] 
-        score = dets[i, -1] 
-        if score > thresh:
-            #plt.cla()
-            #plt.imshow(im)
-            plt.gca().add_patch(
-                plt.Rectangle((bbox[0], bbox[1]),
-                              bbox[2] - bbox[0],
-                              bbox[3] - bbox[1], fill=False,
-                              edgecolor='g', linewidth=3)
-                )
-            plt.gca().text(bbox[0], bbox[1] - 2,
-                 '{:s} {:.3f}'.format(class_name, score),
-                 bbox=dict(facecolor='blue', alpha=0.5),
-                 fontsize=14, color='white')
-
-            plt.title('{}  {:.3f}'.format(class_name, score))
+    import matplotlib.pyplot as plt
+    filtered_idx = np.where(dets[:, -1] >= thresh)[0]
+    if len(filtered_idx) == 0:
+        return
+    fig, ax = plt.subplots(figsize=(12, 12))
+    ax.imshow(im, aspect = 'equal')
+    interpolation_factor = 1.0 / (1.0 - thresh)
+    for i in filtered_idx:
+        bbox = dets[i, :4]
+        score = dets[i, -1]
+        ax.add_patch(
+            plt.Rectangle((bbox[0], bbox[1]),
+                          bbox[2] - bbox[0],
+                          bbox[3] - bbox[1], fill=False,
+                          edgecolor='red', linewidth=3,
+                          alpha = interpolation_factor * (score - thresh))
+        )
+        ax.text(bbox[0] - 20, bbox[1] - 5,
+                '{:s} {:.3f}'.format(class_name, score),
+                bbox=dict(facecolor='blue', alpha=0.5),
+                fontsize=10, color='white')
+    # Add ground truth boxes
+    for gt_box in gt_boxes:
+        ax.add_patch(
+            plt.Rectangle((gt_box[0], gt_box[1]),
+                          gt_box[2] - gt_box[0],
+                          gt_box[3] - gt_box[1], fill=False,
+                          edgecolor='yellow', linewidth=3)
+        )
+    ax.set_title(('{} : {} detections with '
+                  'p({} | box) >= {:.1f}').format(image_name, class_name,
+                                                  class_name, thresh),
+                 fontsize=14)
+    plt.axis('off')
+    plt.tight_layout()
     #plt.show()
+    split_im_name = image_name.split('/')
+    project_id = split_im_name[0]
+    im_name = split_im_name[1]
+    plt.savefig(project_id + '-' + im_name)
 
 def apply_nms(all_boxes, thresh):
     """Apply non-maximum suppression to all predicted boxes output by the
@@ -289,16 +309,13 @@ def test_net(sess, net, imdb, weights_filename , max_per_image=300, thresh=0.05,
             # ground truth.
             box_proposals = roidb[i]['boxes'][roidb[i]['gt_classes'] == 0]
 
-        im = cv2.imread(imdb.image_path_at(i))
+        im = ndimage.imread(imdb.image_path_at(i))
+        im_bgr = im[:, :, (2, 1, 0)]
         _t['im_detect'].tic()
-        scores, boxes = im_detect(sess, net, im, box_proposals)
+        scores, boxes = im_detect(sess, net, im_bgr, box_proposals)
         detect_time = _t['im_detect'].toc(average=False)
 
         _t['misc'].tic()
-        if vis:
-            image = im[:, :, (2, 1, 0)] 
-            plt.cla()
-            plt.imshow(image)
 
         # skip j = 0, because it's the background class
         for j in xrange(1, imdb.num_classes):
@@ -310,10 +327,8 @@ def test_net(sess, net, imdb, weights_filename , max_per_image=300, thresh=0.05,
             keep = nms(cls_dets, cfg.TEST.NMS)
             cls_dets = cls_dets[keep, :]
             if vis:
-                vis_detections(image, imdb.classes[j], cls_dets)
+                vis_detections(im, imdb.image_name_at(i), imdb.classes[j], cls_dets, imdb.roidb[i]['boxes'])
             all_boxes[j][i] = cls_dets
-        if vis:
-           plt.show()
         # Limit to max_per_image detections *over all classes*
         if max_per_image > 0:
             image_scores = np.hstack([all_boxes[j][i][:, -1]
