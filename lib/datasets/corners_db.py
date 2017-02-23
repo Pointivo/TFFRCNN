@@ -10,9 +10,7 @@ from .imdb import imdb
 import xml.etree.ElementTree as ET
 import numpy as np
 import scipy.sparse
-import scipy.io as sio
 #import cPickle
-import subprocess
 from ..fast_rcnn.config import cfg
 
 class corners_db(imdb):
@@ -104,15 +102,76 @@ class corners_db(imdb):
 
         return gt_roidb
 
-    def dummy_roidb_handler(self):
+    def compute_det_gt_overlaps(self, detected_boxes, gt_box, overlap_thresh=0.16, conf_thresh=0.05):
         """
-        Using RPN with this database so this method is not needed
+        Returns which detected boxes overlap with the provided ground truth box
         """
-        pass
+        if (gt_box.size == 0) or (detected_boxes.size == 0):
+            return np.array([], dtype=np.uint32)
+        # Compute intersections
+        ixmin = np.maximum(detected_boxes[:, 0], gt_box[0])
+        iymin = np.maximum(detected_boxes[:, 1], gt_box[1])
+        ixmax = np.minimum(detected_boxes[:, 2], gt_box[2])
+        iymax = np.minimum(detected_boxes[:, 3], gt_box[3])
+        iw = np.maximum(ixmax - ixmin + 1., 0.)
+        ih = np.maximum(iymax - iymin + 1., 0.)
+        intersection_areas = iw * ih
+        # mask out intersections with detections having confidence values lesser than a threshold
+        mask_intersections = np.where(detected_boxes[:, 4] < conf_thresh)[0]
+        intersection_areas[mask_intersections] = 0.
+        # Compute unions
+        union_areas = ((gt_box[2] - gt_box[0] + 1.) * (gt_box[3] - gt_box[1] + 1.) +
+               (detected_boxes[:, 2] - detected_boxes[:, 0] + 1.) *
+               (detected_boxes[:, 3] - detected_boxes[:, 1] + 1.) - intersection_areas)
+        overlap_ratios = intersection_areas / union_areas
+        return np.where(overlap_ratios > overlap_thresh)[0]
 
-    def evaluate_detections(self, all_boxes, output_dir):
-        """ Not implementing it for now """
-        pass
+    def getRelevanceMeasures(self, detected_boxes, gt_boxes):
+        """
+         Return the number of true positives, false positives and false negatives
+         This method assumes that the detected_boxes and gt_boxes belong to the same class
+        """
+        num_det_boxes = len(detected_boxes)
+        num_gt_boxes = len(gt_boxes)
+        tp_map = np.zeros(num_det_boxes, dtype=np.uint8)
+        fn_map = np.ones(num_gt_boxes, dtype=np.uint8)
+        for gt_ind in xrange(num_gt_boxes):
+            overlap_inds = self.compute_det_gt_overlaps(detected_boxes, gt_boxes[gt_ind, :])
+            if overlap_inds.size != 0:
+                tp_map[overlap_inds] = 1
+                fn_map[gt_ind] = 0
+        num_tp = np.count_nonzero(tp_map)
+        num_fp = num_det_boxes - num_tp
+        num_fn = np.count_nonzero(fn_map)
+        return num_tp, num_fp, num_fn
+
+    def evaluate_detections(self, all_boxes, output_dir=None):
+        """ Output precision and recall measures for the detections """
+        num_images = len(self.image_index)
+        tps = 0
+        fps = 0
+        fns = 0
+        for image_ind in xrange(num_images):
+            for cls_ind, cls in enumerate(self.classes):
+                if cls == '__background__':
+                    continue
+                gt_boxes_inds_cls = np.where(self.roidb[image_ind]['gt_classes'] == cls_ind)[0]
+                gt_boxes_cls = self.roidb[image_ind]['boxes'][gt_boxes_inds_cls]
+                cls_tp_per_im, cls_fp_per_im, cls_fn_per_im = self.getRelevanceMeasures(all_boxes[cls_ind][image_ind],
+                                                                                        gt_boxes_cls)
+                tps += cls_tp_per_im
+                fps += cls_fp_per_im
+                fns += cls_fn_per_im
+        # cfg.EPS is a small number which avoids division by zero
+        precision = tps / (tps + fps + cfg.EPS)
+        recall = tps / (tps + fns + cfg.EPS)
+        print('~~~~~~~~')
+        print('')
+        print('--------------------------------------------------------------')
+        print('Evaluation done over a set of {:d} test images'.format(num_images))
+        print('Precision = {:.4f}'.format(precision))
+        print('Recall = {:.4f}'.format(recall))
+        print('--------------------------------------------------------------')
 
     def _load_corners_annotation(self, index_entry):
         """
