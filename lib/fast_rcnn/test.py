@@ -202,7 +202,7 @@ def im_detect(sess, net, im, boxes=None):
 
     return scores, pred_boxes
 
-def vis_detections(im, image_name, class_name, dets, gt_boxes, thresh=0.5):
+def vis_detections(im, image_name, class_name, dets, gt_boxes, thresh=0.05):
     """Visual debugging of detections."""
     import matplotlib.pyplot as plt
     filtered_idx = np.where(dets[:, -1] >= thresh)[0]
