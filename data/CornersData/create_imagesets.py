@@ -11,7 +11,7 @@ import random
 import math
 import glob
 
-train_split = 0.75
+train_split = 0.80
 
 def get_root_path():
     return osp.abspath(osp.dirname(__file__))
