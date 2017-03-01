@@ -202,7 +202,7 @@ def im_detect(sess, net, im, boxes=None):
 
     return scores, pred_boxes
 
-def vis_detections(im, image_name, class_name, dets, gt_boxes, thresh=0.05):
+def vis_detections(imdb, im, image_name, class_name, dets, gt_boxes, out_dir, thresh=0.05):
     """Visual debugging of detections."""
     import matplotlib.pyplot as plt
     filtered_idx = np.where(dets[:, -1] >= thresh)[0]
@@ -233,9 +233,15 @@ def vis_detections(im, image_name, class_name, dets, gt_boxes, thresh=0.05):
                           gt_box[3] - gt_box[1], fill=False,
                           edgecolor='yellow', linewidth=3)
         )
+    tps, fps, fns, _ = imdb.getRelevanceMeasures(dets, gt_boxes)
+    precision = tps / (tps + fps + cfg.EPS)
+    recall = tps / (tps + fns + cfg.EPS)
     ax.set_title(('{} : {} detections with '
-                  'p({} | box) >= {:.1f}').format(image_name, class_name,
-                                                  class_name, thresh),
+                  'p({} | box) >= {:.2f}, '
+                  'Precision = {:.4f}, '
+                  'Recall = {:.4f}').format(image_name, class_name,
+                                            class_name, thresh,
+                                            precision, recall),
                  fontsize=14)
     plt.axis('off')
     plt.tight_layout()
@@ -243,7 +249,7 @@ def vis_detections(im, image_name, class_name, dets, gt_boxes, thresh=0.05):
     split_im_name = image_name.split('/')
     project_id = split_im_name[0]
     im_name = split_im_name[1]
-    plt.savefig(project_id + '-' + im_name)
+    plt.savefig(os.path.join(out_dir, project_id + '-' + im_name))
 
 def apply_nms(all_boxes, thresh):
     """Apply non-maximum suppression to all predicted boxes output by the
@@ -327,7 +333,8 @@ def test_net(sess, net, imdb, weights_filename , max_per_image=300, thresh=0.05,
             keep = nms(cls_dets, cfg.TEST.NMS)
             cls_dets = cls_dets[keep, :]
             if vis:
-                vis_detections(im, imdb.image_name_at(i), imdb.classes[j], cls_dets, imdb.roidb[i]['boxes'])
+                vis_detections(imdb, im, imdb.image_name_at(i), imdb.classes[j],
+                               cls_dets, imdb.roidb[i]['boxes'], output_dir)
             all_boxes[j][i] = cls_dets
         # Limit to max_per_image detections *over all classes*
         if max_per_image > 0:

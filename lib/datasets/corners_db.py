@@ -119,12 +119,16 @@ class corners_db(imdb):
         # mask out intersections with detections having confidence values lesser than a threshold
         mask_intersections = np.where(detected_boxes[:, 4] < conf_thresh)[0]
         intersection_areas[mask_intersections] = 0.
+        # Compute GT box area
+        gt_area = (gt_box[2] - gt_box[0] + 1.) * (gt_box[3] - gt_box[1] + 1.)
         # Compute unions
-        union_areas = ((gt_box[2] - gt_box[0] + 1.) * (gt_box[3] - gt_box[1] + 1.) +
-               (detected_boxes[:, 2] - detected_boxes[:, 0] + 1.) *
-               (detected_boxes[:, 3] - detected_boxes[:, 1] + 1.) - intersection_areas)
-        overlap_ratios = intersection_areas / union_areas
-        return np.where(overlap_ratios > overlap_thresh)[0]
+        union_areas = (gt_area + (detected_boxes[:, 2] - detected_boxes[:, 0] + 1.) *
+                      (detected_boxes[:, 3] - detected_boxes[:, 1] + 1.) - intersection_areas)
+        # Intersection over union area overlap ratios
+        IoU_overlap_ratios = intersection_areas / union_areas
+        # Intersection over ground truth area overlap ratios
+        I_overlap_ratios = intersection_areas / gt_area
+        return np.where(IoU_overlap_ratios > overlap_thresh)[0], I_overlap_ratios
 
     def getRelevanceMeasures(self, detected_boxes, gt_boxes):
         """
@@ -135,33 +139,41 @@ class corners_db(imdb):
         num_gt_boxes = len(gt_boxes)
         tp_map = np.zeros(num_det_boxes, dtype=np.uint8)
         fn_map = np.ones(num_gt_boxes, dtype=np.uint8)
+        I_overlaps = np.array([], dtype=np.float)
         for gt_ind in xrange(num_gt_boxes):
-            overlap_inds = self.compute_det_gt_overlaps(detected_boxes, gt_boxes[gt_ind, :])
+            overlap_inds, intersection_overlap_ratios = self.compute_det_gt_overlaps(detected_boxes, gt_boxes[gt_ind, :])
+            I_overlaps = np.concatenate((I_overlaps, intersection_overlap_ratios), axis=0)
             if overlap_inds.size != 0:
                 tp_map[overlap_inds] = 1
                 fn_map[gt_ind] = 0
         num_tp = np.count_nonzero(tp_map)
         num_fp = num_det_boxes - num_tp
         num_fn = np.count_nonzero(fn_map)
-        return num_tp, num_fp, num_fn
+        return num_tp, num_fp, num_fn, I_overlaps
 
     def evaluate_detections(self, all_boxes, output_dir=None):
         """ Output precision and recall measures for the detections """
+        if output_dir is None:
+            output_dir = '.'
         num_images = len(self.image_index)
         tps = 0
         fps = 0
         fns = 0
+        all_intersection_overlaps = np.array([], dtype=np.float)
         for image_ind in xrange(num_images):
             for cls_ind, cls in enumerate(self.classes):
                 if cls == '__background__':
                     continue
                 gt_boxes_inds_cls = np.where(self.roidb[image_ind]['gt_classes'] == cls_ind)[0]
                 gt_boxes_cls = self.roidb[image_ind]['boxes'][gt_boxes_inds_cls]
-                cls_tp_per_im, cls_fp_per_im, cls_fn_per_im = self.getRelevanceMeasures(all_boxes[cls_ind][image_ind],
+                cls_tp_per_im, cls_fp_per_im,\
+                cls_fn_per_im, cls_im_intersection_overlaps = self.getRelevanceMeasures(all_boxes[cls_ind][image_ind],
                                                                                         gt_boxes_cls)
                 tps += cls_tp_per_im
                 fps += cls_fp_per_im
                 fns += cls_fn_per_im
+                all_intersection_overlaps = np.concatenate((all_intersection_overlaps, cls_im_intersection_overlaps),
+                                                           axis=0)
         # cfg.EPS is a small number which avoids division by zero
         precision = tps / (tps + fps + cfg.EPS)
         recall = tps / (tps + fns + cfg.EPS)
@@ -172,6 +184,13 @@ class corners_db(imdb):
         print('Precision = {:.4f}'.format(precision))
         print('Recall = {:.4f}'.format(recall))
         print('--------------------------------------------------------------')
+        import matplotlib.pyplot as plt
+        fig, _ = plt.subplots(figsize=(12, 12))
+        fig.clear()
+        all_intersection_overlaps = all_intersection_overlaps[np.where(all_intersection_overlaps > 0.)[0]]
+        plt.hist(all_intersection_overlaps, bins=10)
+        plt.title('Histogram of detection-ground truth overlap ratios over a test set of {:d} images'.format(num_images))
+        plt.savefig(os.path.join(output_dir, 'overlap_hist.jpg'))
 
     def _load_corners_annotation(self, index_entry):
         """
