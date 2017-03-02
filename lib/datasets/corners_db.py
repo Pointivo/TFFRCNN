@@ -107,7 +107,7 @@ class corners_db(imdb):
         Returns which detected boxes overlap with the provided ground truth box
         """
         if (gt_box.size == 0) or (detected_boxes.size == 0):
-            return np.array([], dtype=np.uint32)
+            return np.array([], dtype=np.uint32), np.array([], dtype=np.float)
         # Compute intersections
         ixmin = np.maximum(detected_boxes[:, 0], gt_box[0])
         iymin = np.maximum(detected_boxes[:, 1], gt_box[1])
