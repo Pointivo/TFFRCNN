@@ -200,8 +200,8 @@ class corners_db(imdb):
         split_entry = index_entry.split('/')
         project_id = split_entry[0]
         frame_name_no_ext = os.path.splitext(split_entry[1])[0]
-        annotation_filename = project_id + '-' + frame_name_no_ext + '.xml'
-        annotation_file = os.path.join(self._data_path, 'Annotations', annotation_filename)
+        annotation_filename = frame_name_no_ext + '.xml'
+        annotation_file = os.path.join(self._data_path, 'Annotations', project_id, annotation_filename)
         tree = ET.parse(annotation_file)
         objs = tree.findall('object')
         num_objs = len(objs)
