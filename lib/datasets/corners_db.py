@@ -181,15 +181,19 @@ class corners_db(imdb):
         print('')
         print('--------------------------------------------------------------')
         print('Evaluation done over a set of {:d} test images'.format(num_images))
-        print('Precision = {:.4f}'.format(precision))
-        print('Recall = {:.4f}'.format(recall))
+        print('Average Precision = {:.4f}'.format(precision))
+        print('Average Recall = {:.4f}'.format(recall))
         print('--------------------------------------------------------------')
         import matplotlib.pyplot as plt
         fig, _ = plt.subplots(figsize=(12, 12))
         fig.clear()
         all_intersection_overlaps = all_intersection_overlaps[np.where(all_intersection_overlaps > 0.)[0]]
-        plt.hist(all_intersection_overlaps, bins=10)
+        hist, bin_edges = np.histogram(all_intersection_overlaps, bins=10, normed=True)
+        bin_width = bin_edges[1] - bin_edges[0]
+        plt.bar(bin_edges[:-1], hist * bin_width, bin_width)
         plt.title('Histogram of detection-ground truth overlap ratios over a test set of {:d} images'.format(num_images))
+        plt.xlabel('Ratio of overlap area to ground truth area')
+        plt.ylabel('Proportion of detected boxes')
         plt.savefig(os.path.join(output_dir, 'overlap_hist.jpg'))
 
     def _load_corners_annotation(self, index_entry):
