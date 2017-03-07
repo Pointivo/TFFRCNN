@@ -24,7 +24,7 @@ def bbox_transform(ex_rois, gt_rois):
     #     'Invalid boxes found: {} {}'. \
     #         format(ex_rois[np.argmin(ex_widths), :], ex_rois[np.argmin(ex_heights), :])
     if not((np.min(ex_widths) > 0.1) and (np.min(ex_heights) > 0.1)):
-        'Invalid boxes found: {} {}'. \
+        print 'Invalid boxes found: {} {}'. \
             format(ex_rois[np.argmin(ex_widths), :], ex_rois[np.argmin(ex_heights), :])
 
     gt_widths = gt_rois[:, 2] - gt_rois[:, 0] + 1.0
