@@ -233,15 +233,20 @@ def vis_detections(imdb, im, image_name, class_name, dets, gt_boxes, out_dir, th
                           gt_box[3] - gt_box[1], fill=False,
                           edgecolor='yellow', linewidth=3)
         )
-    tps, fps, fns, _ = imdb.getRelevanceMeasures(dets, gt_boxes)
+    tps, fps, fns, _, dets_gts_dists = imdb.getRelevanceMeasures(dets, gt_boxes)
     precision = tps / (tps + fps + cfg.EPS)
     recall = tps / (tps + fns + cfg.EPS)
+    if dets_gts_dists.size == 0:
+        mean_distance = np.inf
+    else:
+        mean_distance = np.sum(dets_gts_dists) / float(dets_gts_dists.size)
     ax.set_title(('{} : {} detections with '
                   'p({} | box) >= {:.2f}, '
                   'Precision = {:.4f}, '
-                  'Recall = {:.4f}').format(image_name, class_name,
+                  'Recall = {:.4f}'
+                  'Mean distance = {:.4f}').format(image_name, class_name,
                                             class_name, thresh,
-                                            precision, recall),
+                                            precision, recall, mean_distance),
                  fontsize=14)
     plt.axis('off')
     plt.tight_layout()
