@@ -243,7 +243,7 @@ def vis_detections(imdb, im, image_name, class_name, dets, gt_boxes, out_dir, th
     ax.set_title(('{} : {} detections with '
                   'p({} | box) >= {:.2f}, '
                   'Precision = {:.4f}, '
-                  'Recall = {:.4f}'
+                  'Recall = {:.4f},\n'
                   'Mean distance = {:.4f}').format(image_name, class_name,
                                             class_name, thresh,
                                             precision, recall, mean_distance),
